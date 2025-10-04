@@ -25,7 +25,11 @@ async function runMigration() {
     // Create Supabase client
     const supabase = createClient(supabaseUrl, supabaseKey);
     
-    // Check if migration tracking table exists
+    // Check if migration tracking table exists and create it if needed
+    console.log('🔍 Checking migration tracking table...');
+    await ensureMigrationTable(supabase);
+    
+    // Check if migration already applied
     console.log('🔍 Checking migration status...');
     
     const { data: migrations, error: migrationError } = await supabase
@@ -57,11 +61,8 @@ async function runMigration() {
     if (!sessionsError && !submissionsError) {
       console.log('✅ Tables already exist - creating migration record...');
       
-      // Create migration tracking table if it doesn't exist
-      await createMigrationTable(supabase);
-      
       // Record this migration as completed
-      await supabase
+      const { error: insertError } = await supabase
         .from(MIGRATION_TABLE)
         .insert({
           version: CURRENT_VERSION,
@@ -69,78 +70,79 @@ async function runMigration() {
           description: 'Initial math problem tables'
         });
       
-      console.log('✅ Migration record created');
+      if (insertError) {
+        console.log('⚠️  Could not create migration record:', insertError.message);
+      } else {
+        console.log('✅ Migration record created');
+      }
+      
       console.log('🎉 Database is ready!');
       return;
     }
     
-    console.log('📄 Running migration...');
-    
-    // Read migration SQL
-    const migrationPath = path.join(__dirname, '..', 'supabase', 'migration.sql');
-    if (!fs.existsSync(migrationPath)) {
-      throw new Error('Migration file not found');
-    }
-    
-    const migrationSQL = fs.readFileSync(migrationPath, 'utf8');
-    
-    // Create migration tracking table first
-    await createMigrationTable(supabase);
-    
-    // Execute migration using REST API (since we can't execute raw SQL directly)
-    console.log('⚠️  Migration needs to be run manually in Supabase Dashboard:');
+    // Tables don't exist, need to run migration
+    console.log('📄 Tables not found - migration needed');
+    console.log('⚠️  Database migration must be run manually in Supabase Dashboard');
     console.log('');
+    console.log('📋 Steps to complete migration:');
     console.log('1. Go to your Supabase project dashboard');
-    console.log('2. Go to SQL Editor');
-    console.log('3. Copy and paste the contents below');
-    console.log('4. Click "Run"');
-    console.log('');
-    console.log('📋 Migration SQL:');
-    console.log('─'.repeat(50));
-    console.log(migrationSQL);
-    console.log('─'.repeat(50));
+    console.log('2. Navigate to SQL Editor');
+    console.log('3. Copy and paste the SQL from ./supabase/migration.sql');
+    console.log('4. Click "Run" to execute the migration');
     console.log('');
     console.log('📁 Migration file location: ./supabase/migration.sql');
+    console.log('');
     
-    // After manual migration, record it
-    console.log('⚠️  After running the SQL above, the migration will be recorded automatically');
+    // Read and display migration SQL for convenience
+    const migrationPath = path.join(__dirname, '..', 'supabase', 'migration.sql');
+    if (fs.existsSync(migrationPath)) {
+      const migrationSQL = fs.readFileSync(migrationPath, 'utf8');
+      console.log('📋 Migration SQL:');
+      console.log('─'.repeat(50));
+      console.log(migrationSQL);
+      console.log('─'.repeat(50));
+    }
+    
+    console.log('');
+    console.log('⚠️  After running the SQL above, the migration will be tracked automatically');
+    console.log('🎉 Migration setup complete!');
     
   } catch (error) {
-    console.error('❌ Migration failed:', error.message);
-    console.log('⚠️  Please run migration manually in Supabase Dashboard');
-    process.exit(0); // Don't fail the build, just warn
+    console.error('❌ Migration check failed:', error.message);
+    console.log('⚠️  Please check your Supabase configuration and run migration manually');
+    // Don't exit with error code to avoid failing the build
+    console.log('🔄 Continuing with deployment...');
   }
 }
 
-async function createMigrationTable(supabase) {
+async function ensureMigrationTable(supabase) {
   try {
-    // Try to create migration tracking table
+    // Try to query migration tracking table
     const { error } = await supabase
       .from(MIGRATION_TABLE)
       .select('*')
       .limit(1);
     
     if (error && error.message.includes('relation "_migrations" does not exist')) {
-      console.log('📊 Creating migration tracking table...');
-      
-      // This would need to be done manually in Supabase Dashboard:
-      // CREATE TABLE IF NOT EXISTS _migrations (
-      //   id SERIAL PRIMARY KEY,
-      //   version VARCHAR(255) UNIQUE NOT NULL,
-      //   applied_at TIMESTAMP DEFAULT NOW(),
-      //   description TEXT
-      // );
-      
-      console.log('⚠️  Please create migration tracking table manually:');
+      console.log('📊 Migration tracking table not found');
+      console.log('⚠️  Please create migration tracking table manually in Supabase Dashboard:');
+      console.log('');
       console.log('CREATE TABLE IF NOT EXISTS _migrations (');
       console.log('  id SERIAL PRIMARY KEY,');
       console.log('  version VARCHAR(255) UNIQUE NOT NULL,');
       console.log('  applied_at TIMESTAMP DEFAULT NOW(),');
       console.log('  description TEXT');
       console.log(');');
+      console.log('');
+      console.log('🔄 This is a one-time setup. After creating the table, migrations will be tracked automatically.');
+      return false;
     }
+    
+    console.log('✅ Migration tracking table exists');
+    return true;
   } catch (err) {
-    console.log('Migration table check completed');
+    console.log('⚠️  Could not check migration table:', err.message);
+    return false;
   }
 }
 
