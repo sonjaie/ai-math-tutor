@@ -96,21 +96,6 @@ jobs:
       with:
         version: latest
     
-    - name: Link to Supabase Project
-      run: |
-        echo "Linking to Supabase project: $SUPABASE_PROJECT_ID"
-        supabase link --project-ref "$SUPABASE_PROJECT_ID"
-    
-    - name: Run Database Migrations
-      run: |
-        echo "Running database migrations..."
-        # This command automatically handles:
-        # - Checking if tables exist (skips if they do)
-        # - Checking if columns exist (skips if they do)
-        # - Only applies new migrations
-        supabase db push --debug
-        echo "SUCCESS: Database migrations completed successfully"
-    
     - name: Generate TypeScript Types
       run: |
         echo "Generating TypeScript types..."
