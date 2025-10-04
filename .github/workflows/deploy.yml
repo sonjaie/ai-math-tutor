@@ -57,53 +57,56 @@ jobs:
     needs: build  # Wait for build job to complete successfully
     
     steps:
-    - name: Trigger Vercel Deploy Hook
+    - name: Install Vercel CLI
+      run: |
+        echo "📦 Installing Vercel CLI..."
+        npm install -g vercel@latest
+        
+    - name: Deploy to Vercel
       id: deploy
       run: |
-        echo "🚀 Triggering Vercel deployment..."
-        echo "🔍 Deploy Hook URL: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}"
+        echo "🚀 Deploying to Vercel via CLI..."
         
-        # Test the deploy hook URL first
-        if [ -z "${{ secrets.VERCEL_DEPLOY_HOOK_URL }}" ]; then
-          echo "❌ VERCEL_DEPLOY_HOOK_URL is not set!"
+        # Set Vercel token
+        export VERCEL_TOKEN="${{ secrets.VERCEL_TOKEN }}"
+        
+        # Deploy to Vercel
+        echo "📡 Creating deployment..."
+        deployment_output=$(vercel --prod --yes --token="${{ secrets.VERCEL_TOKEN }}" 2>&1)
+        echo "📄 Deployment output: $deployment_output"
+        
+        # Extract deployment URL from output
+        deployment_url=$(echo "$deployment_output" | grep -o 'https://[^[:space:]]*\.vercel\.app' | head -1)
+        if [ -z "$deployment_url" ]; then
+          echo "❌ Failed to extract deployment URL"
+          echo "📄 Full output: $deployment_output"
           exit 1
         fi
         
-        # Trigger deployment with force parameter
-        echo "📡 Triggering deployment with force..."
-        response=$(curl -X POST "${{ secrets.VERCEL_DEPLOY_HOOK_URL }}?force=1" -s -w "\nHTTP_CODE:%{http_code}")
-        http_code=$(echo "$response" | grep "HTTP_CODE:" | cut -d: -f2)
-        json_response=$(echo "$response" | sed '/HTTP_CODE:/d')
-        
-        echo "📡 HTTP Status: $http_code"
-        echo "📄 Response: $json_response"
-        
-        if [ "$http_code" != "200" ] && [ "$http_code" != "201" ]; then
-          echo "❌ Deploy hook failed with HTTP $http_code"
-          echo "🔍 Check your Vercel deploy hook URL in GitHub secrets"
-          exit 1
-        fi
-        
-        # Extract deployment ID from response
-        deployment_id=$(echo "$json_response" | jq -r '.job.id // empty')
-        if [ -z "$deployment_id" ]; then
-          echo "❌ Failed to get deployment ID from Vercel response"
-          echo "📄 Full response: $json_response"
-          exit 1
-        fi
-        
-        echo "✅ Deployment triggered successfully!"
-        echo "📊 Deployment ID: $deployment_id"
-        echo "deployment_id=$deployment_id" >> $GITHUB_OUTPUT
+        echo "✅ Deployment created successfully!"
+        echo "🌐 Deployment URL: $deployment_url"
+        echo "deployment_url=$deployment_url" >> $GITHUB_OUTPUT
         
     - name: Wait for Vercel Build
       run: |
-        deployment_id="${{ steps.deploy.outputs.deployment_id }}"
+        deployment_url="${{ steps.deploy.outputs.deployment_url }}"
         echo "⏳ Waiting for Vercel build to complete..."
-        echo "📊 Deployment ID: $deployment_id"
-        echo "🔍 This will trigger a FRESH build in Vercel dashboard"
-        echo "📋 Check your Vercel dashboard to monitor the NEW build progress"
-        echo "⏳ Waiting 3 minutes for build to complete..."
-        sleep 180
-        echo "✅ Build monitoring completed!"
-        echo "🎉 Check your Vercel dashboard for the NEW deployment status"
+        echo "🌐 Deployment URL: $deployment_url"
+        
+        # Wait a moment for deployment to be ready
+        echo "⏳ Waiting 30 seconds for initial deployment..."
+        sleep 30
+        
+        # Test the deployment URL
+        echo "🧪 Testing deployment URL..."
+        response=$(curl -s -o /dev/null -w "%{http_code}" "$deployment_url" || echo "000")
+        echo "📡 HTTP Status: $response"
+        
+        if [ "$response" = "200" ]; then
+          echo "✅ Deployment is live and working!"
+          echo "🎉 Your application is now available at: $deployment_url"
+        else
+          echo "⚠️  Deployment might still be building..."
+          echo "🔍 Check your Vercel dashboard for the latest deployment"
+          echo "🌐 URL: $deployment_url"
+        fi
