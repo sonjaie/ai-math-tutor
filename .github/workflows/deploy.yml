@@ -77,7 +77,7 @@ jobs:
         echo "📡 HTTP Status: $http_code"
         echo "📄 Response: $json_response"
         
-        if [ "$http_code" != "200" ]; then
+        if [ "$http_code" != "200" ] && [ "$http_code" != "201" ]; then
           echo "❌ Deploy hook failed with HTTP $http_code"
           echo "🔍 Check your Vercel deploy hook URL in GitHub secrets"
           exit 1
