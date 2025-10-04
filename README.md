@@ -51,7 +51,6 @@ Create a `.env.local` file with:
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://eouhvfiknjcacmkaxbpx.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVvdWh2ZmlrbmpjYWNta2F4YnB4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk1NDM0OTgsImV4cCI6MjA3NTExOTQ5OH0.B9PY2yuWhakH790g7uZh2gTjyaA7xzB5d6TazmyiwMM
-OPENAI_API_KEY=your-openai-api-key-here
 ```
 
 ## 🚀 Getting Started
