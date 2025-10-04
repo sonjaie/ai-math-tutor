@@ -14,7 +14,7 @@ env:
 
 jobs:
   # Job 1: Run tests and build
-  test-and-build:
+  Build:
     runs-on: ubuntu-latest
     
     steps:
@@ -66,8 +66,8 @@ jobs:
         
 
   # Job 2: Deploy to Vercel (only runs on main branch and after successful build)
-  deploy-vercel:
-    needs: test-and-build
+  Deploy:
+    needs: Build
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     
@@ -101,11 +101,15 @@ jobs:
         echo "Generating TypeScript types..."
         supabase gen types typescript --project-id $SUPABASE_PROJECT_ID > lib/supabase/types.ts
     
-    - name: Trigger Vercel Deploy
+    - name: Install Vercel CLI
+      run: npm install -g vercel@latest
+    
+    - name: Deploy to Vercel
       run: |
-        curl -X POST "${{ secrets.VERCEL_DEPLOY_HOOK_URL }}"
+        echo "Deploying to Vercel..."
+        vercel --prod --yes --token="${{ secrets.VERCEL_TOKEN }}"
       env:
-        VERCEL_DEPLOY_HOOK_URL: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
+        VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       
     - name: Notify deployment success
       run: |
