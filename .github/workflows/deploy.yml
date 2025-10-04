@@ -107,7 +107,10 @@ jobs:
     - name: Deploy to Vercel
       run: |
         echo "Deploying to Vercel..."
-        vercel --prod --yes --token="${{ secrets.VERCEL_TOKEN }}"
+        vercel --prod --yes --token="${{ secrets.VERCEL_TOKEN }}" \
+          --env NEXT_PUBLIC_SUPABASE_URL="${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}" \
+          --env NEXT_PUBLIC_SUPABASE_ANON_KEY="${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}" \
+          --env OPENAI_API_KEY="${{ secrets.OPENAI_API_KEY }}"
       env:
         VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       
