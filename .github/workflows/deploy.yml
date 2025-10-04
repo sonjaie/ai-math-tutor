@@ -57,45 +57,50 @@ jobs:
     needs: build  # Wait for build job to complete successfully
     
     steps:
-    - name: Install Vercel CLI
-      run: |
-        echo "📦 Installing Vercel CLI..."
-        npm install -g vercel@latest
-        
-    - name: Deploy to Vercel (Force New Build)
+    - name: Trigger Vercel Deploy Hook
       id: deploy
       run: |
-        echo "🚀 Creating NEW deployment in Vercel..."
+        echo "🚀 Triggering Vercel deployment..."
+        echo "🔍 Deploy Hook URL: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}"
         
-        # Set Vercel token
-        export VERCEL_TOKEN="${{ secrets.VERCEL_TOKEN }}"
-        
-        # Force a new deployment with timestamp to ensure new build
-        timestamp=$(date +%s)
-        echo "📅 Deployment timestamp: $timestamp"
-        
-        # Deploy to Vercel with force flag
-        echo "📡 Creating new deployment..."
-        deployment_output=$(vercel --prod --yes --force --token="${{ secrets.VERCEL_TOKEN }}" 2>&1)
-        echo "📄 Deployment output: $deployment_output"
-        
-        # Extract deployment URL from output
-        deployment_url=$(echo "$deployment_output" | grep -o 'https://[^[:space:]]*\.vercel\.app' | head -1)
-        if [ -z "$deployment_url" ]; then
-          echo "❌ Failed to extract deployment URL"
-          echo "📄 Full output: $deployment_output"
+        # Test the deploy hook URL first
+        if [ -z "${{ secrets.VERCEL_DEPLOY_HOOK_URL }}" ]; then
+          echo "❌ VERCEL_DEPLOY_HOOK_URL is not set!"
           exit 1
         fi
         
-        echo "✅ NEW deployment created successfully!"
-        echo "🌐 Deployment URL: $deployment_url"
-        echo "deployment_url=$deployment_url" >> $GITHUB_OUTPUT
+        # Trigger deployment with force parameter
+        echo "📡 Triggering deployment with force..."
+        response=$(curl -X POST "${{ secrets.VERCEL_DEPLOY_HOOK_URL }}?force=1" -s -w "\nHTTP_CODE:%{http_code}")
+        http_code=$(echo "$response" | grep "HTTP_CODE:" | cut -d: -f2)
+        json_response=$(echo "$response" | sed '/HTTP_CODE:/d')
+        
+        echo "📡 HTTP Status: $http_code"
+        echo "📄 Response: $json_response"
+        
+        if [ "$http_code" != "200" ] && [ "$http_code" != "201" ]; then
+          echo "❌ Deploy hook failed with HTTP $http_code"
+          echo "🔍 Check your Vercel deploy hook URL in GitHub secrets"
+          exit 1
+        fi
+        
+        # Extract deployment ID from response
+        deployment_id=$(echo "$json_response" | jq -r '.job.id // empty')
+        if [ -z "$deployment_id" ]; then
+          echo "❌ Failed to get deployment ID from Vercel response"
+          echo "📄 Full response: $json_response"
+          exit 1
+        fi
+        
+        echo "✅ Deployment triggered successfully!"
+        echo "📊 Deployment ID: $deployment_id"
+        echo "deployment_id=$deployment_id" >> $GITHUB_OUTPUT
         
     - name: Wait for Vercel Build
       run: |
-        deployment_url="${{ steps.deploy.outputs.deployment_url }}"
+        deployment_id="${{ steps.deploy.outputs.deployment_id }}"
         echo "⏳ Waiting for Vercel build to complete..."
-        echo "🌐 Deployment URL: $deployment_url"
+        echo "📊 Deployment ID: $deployment_id"
         echo "🔍 This will trigger a FRESH build in Vercel dashboard"
         echo "📋 Check your Vercel dashboard to monitor the NEW build progress"
         echo "⏳ Waiting 3 minutes for build to complete..."
