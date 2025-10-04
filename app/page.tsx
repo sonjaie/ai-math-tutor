@@ -248,10 +248,6 @@ export default function Home() {
             )}
           </CardContent>
         </Card>
-
-        <div className="mt-8 text-center text-sm text-gray-500">
-          <p>All problems and submissions are saved to the database</p>
-        </div>
       </div>
     </div>
   );
