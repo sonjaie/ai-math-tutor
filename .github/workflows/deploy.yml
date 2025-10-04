@@ -71,10 +71,7 @@ jobs:
         
     - name: Run Supabase Migration
       run: |
-        # Install Supabase CLI
-        npm install -g supabase
-        
-        # Run migration using Node.js script
+        # Run migration using Node.js script (no Supabase CLI needed)
         node scripts/migrate.js
       env:
         NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
